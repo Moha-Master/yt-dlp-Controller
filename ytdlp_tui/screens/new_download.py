@@ -25,7 +25,7 @@ from ..ytdlp import (
 from .modals import FormatsModal, PlaylistModal
 
 PRESET_OPTIONS = [(spec["label"], key) for key, spec in PRESETS.items()]
-CONTAINER_OPTIONS = [("自动（按源）", "auto"), ("MP4", "mp4"), ("MKV", "mkv")]
+CONTAINER_OPTIONS = [("自动", "auto"), ("MP4", "mp4"), ("MKV", "mkv")]
 AUDIO_OPTIONS = [("自动", ""), ("MP3", "mp3"), ("M4A", "m4a")]
 PLAYLIST_MODES = [("全部下载", "all"), ("仅当前", "single"), ("前 N 个…", "range")]
 
@@ -101,13 +101,13 @@ class NewDownloadScreen(PageScreen):
             with Horizontal(classes="filter-row"):
                 yield Static("链接", classes="fl-label")
                 yield Input(
-                    placeholder="粘贴视频或播放列表链接，可空格 / 逗号分隔多条",
+                    placeholder="粘贴视频或播放列表链接，使用空格 / 逗号分隔多条",
                     compact=True,
                     id="nd-url",
                 )
                 yield Button("解析", id="nd-parse", variant="primary")
             yield Static(
-                "支持视频、播放列表；播放列表会先列出条目再决定范围",
+                "支持视频和播放列表",
                 id="nd-note",
                 classes="nd-note",
             )

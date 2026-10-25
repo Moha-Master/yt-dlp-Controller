@@ -288,20 +288,20 @@ class SettingsScreen(PageScreen):
                 "使用系统证书库",
                 kind="switch",
                 value="on" if self._config.get("use_system_certs") else "",
-                hint="加 --compat-options no-certifi，读取系统信任库（可识别 302 等装入系统的自签名根证书）",
+                hint="读取系统证书库，以便使用自签名根证书",
             ),
             FormField(
                 "no_check_certificates",
                 "跳过证书校验",
                 kind="switch",
                 value="on" if self._config.get("no_check_certificates") else "",
-                hint="加 --no-check-certificates，完全不校验 HTTPS 证书；仅在证书仍无法通过时使用",
+                hint="完全不校验 HTTPS 证书，仅在知道自己在做什么的情况下开启",
             ),
             FormField(
                 "cookies_file",
                 "cookies 文件",
                 value=str(self._config.get("cookies_file", "")),
-                placeholder="/path/to/cookies.txt（优先于浏览器）",
+                placeholder="/path/to/cookies.txt",
             ),
             FormField(
                 "cookies_from_browser",
