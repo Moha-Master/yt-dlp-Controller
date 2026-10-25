@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ytdlp-tui"
+version = "0.1.0"
+description = "基于 Textual 的 yt-dlp 图形化终端界面"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "textual>=8.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/Moha-Master/yt-dlp-TUI"
+Repository = "https://github.com/Moha-Master/yt-dlp-TUI.git"
+GitHub = "https://github.com/Moha-Master/yt-dlp-TUI"
+Issues = "https://github.com/Moha-Master/yt-dlp-TUI/issues"
+
+[project.scripts]
+yt-dlp-ctl = "ytdlp_tui.main:main"
+
+[tool.setuptools]
+packages = ["ytdlp_tui", "ytdlp_tui.screens"]
+
+[tool.setuptools.package-data]
+ytdlp_tui = ["app.tcss"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]

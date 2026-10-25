@@ -1,0 +1,238 @@
+/* app.tcss — yt-dlp-tui 样式（复用 aliyun-controller 规范，按本项目裁剪） */
+
+Screen {
+    background: $surface;
+}
+
+/* ---------- 按钮：全局单行（无边框；四项目一致） ---------- */
+Button {
+    height: 1;
+    border: none;
+    min-width: 0;
+    padding: 0 1;
+}
+
+Button:focus {
+    border: none;
+    text-style: bold reverse;
+}
+
+Button:disabled {
+    text-opacity: 60%;
+}
+
+/* ---------- 模态三段式：标题栏 / 内容 / 按钮栏 ---------- */
+.modal-box {
+    layout: vertical;
+    height: auto;
+    max-height: 90%;
+    border: round $primary;
+    background: $surface;
+    padding: 0;
+}
+
+.modal-title {
+    height: auto;
+    padding: 0 2;
+    border-bottom: hkey $secondary;
+    content-align: left middle;
+}
+
+.modal-main {
+    height: auto;
+    padding: 1 2;
+}
+
+.btn-row {
+    height: auto;
+    padding: 0 2;
+    border-top: hkey $secondary;
+    align-horizontal: right;
+    dock: bottom;
+}
+
+.btn-row Button {
+    margin-left: 2;
+}
+
+/* ---------- 页面公共 ---------- */
+.page-hint {
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+}
+
+/* ---------- 内容区小容器（筛选 / 排序 / 主操作按钮） ---------- */
+.filter-row {
+    height: auto;
+    layout: horizontal;
+}
+
+.filter-row.gap-top {
+    margin-top: 1;
+}
+
+.filter-row .fl-label {
+    width: auto;
+    color: $text-muted;
+    margin-right: 1;
+    content-align: left middle;
+}
+
+.filter-row Input {
+    width: 1fr;
+}
+
+.filter-row .fill {
+    width: 1fr;
+}
+
+.filter-row Select {
+    margin-right: 2;
+}
+
+.filter-row Button {
+    margin-left: 2;
+}
+
+/* ---------- 表格 ---------- */
+.tbl {
+    height: 1fr;
+    margin: 1 1 0 1;
+    border: round $secondary;
+    overflow-x: hidden;
+}
+
+.tbl:focus {
+    border: round $primary;
+}
+
+/* ---------- 信息面板 ---------- */
+.panel {
+    height: auto;
+    margin: 1 1 0 1;
+    padding: 1 2;
+    border: round $secondary;
+}
+
+/* 紧凑面板：80x28 下容纳三块内容而不触发外层滚动 */
+.panel.tight {
+    padding: 0 1;
+}
+
+/* ---------- 首页 ---------- */
+#home-main {
+    height: 1fr;
+    align: center middle;
+}
+
+#home-col {
+    width: auto;
+    max-width: 90%;
+    height: auto;
+}
+
+#home-banner {
+    width: 1fr;
+    text-align: left;
+    color: $primary;
+}
+
+#home-plain {
+    width: 1fr;
+    text-align: center;
+    color: $primary;
+}
+
+#home-version {
+    width: 1fr;
+    text-align: right;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+#home-list {
+    width: 1fr;
+    height: auto;
+    border: none;
+    background: transparent;
+}
+
+.logo-page #home-plain {
+    display: none;
+}
+
+.logo-page.-sm #home-banner {
+    display: none;
+}
+
+.logo-page.-sm #home-plain {
+    display: block;
+}
+
+.logo-page.-sm #home-col {
+    width: 1fr;
+    padding: 0 2;
+}
+
+/* ---------- 设置页 / 信息页：kv 条目 ---------- */
+.kv-row {
+    height: 1;
+    layout: horizontal;
+}
+
+.kv-row.gap-top {
+    margin-top: 1;
+}
+
+.kv-label {
+    width: 18;
+    color: $text-muted;
+    content-align: left middle;
+}
+
+.kv-label.sm {
+    width: 10;
+}
+
+.kv-value {
+    width: 1fr;
+    content-align: left middle;
+    text-style: bold;
+}
+
+.kv-value.dim {
+    text-style: none;
+    color: $text-muted;
+}
+
+/* ---------- 下载选项 ---------- */
+.panel .opt-row {
+    height: auto;
+    layout: horizontal;
+    align-vertical: middle;
+}
+
+.panel .opt-row .opt-label {
+    width: auto;
+    color: $text-muted;
+    margin-right: 1;
+    content-align: left middle;
+}
+
+.panel .opt-row Select {
+    margin-right: 3;
+}
+
+/* ---------- 底部状态栏 ---------- */
+#status {
+    height: 1;
+    dock: bottom;
+    padding: 0 1;
+    background: $panel;
+    color: $text;
+}
+
+#status.ok { color: $success; }
+#status.warn { color: $warning; }
+#status.err { color: $error; }
