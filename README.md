@@ -1,4 +1,4 @@
-# yt-dlp-tui
+# yt-dlp 控制台工具 (yt-dlp-controller)
 
 基于 [Textual](https://textual.textualize.io/) 的 **yt-dlp 图形化终端界面**。
 
@@ -23,19 +23,19 @@
 
 使用 pip 进行安装:
 ```bash
-pip install yt-dlp-tui
+pip install yt-dlp-controller
 ```
 
 ## 启动
 
 ```bash
-yt-dlp-ctl                 # 使用默认配置目录
-yt-dlp-ctl -D /tmp/cfg     # 指定配置目录
-yt-dlp-ctl --yt-dlp /path/to/yt-dlp
-yt-dlp-ctl --version
+ytdlpctl                 # 使用默认配置目录
+ytdlpctl -D /tmp/cfg     # 指定配置目录
+ytdlpctl --yt-dlp /path/to/yt-dlp
+ytdlpctl --version
 ```
 
-配置目录优先级：`-D/--dir` > 环境变量 `YT_DLP_CTL_CONFIG_DIR` > `~/.config/yt-dlp-ctl`。
+配置目录优先级：`-D/--dir` > 环境变量 `YT_DLP_CONTROLLER_CONFIG_DIR` > `~/.config/yt-dlp-controller`。
 首次启动会自动生成 `config.yaml` 与下载目录；配置值非法时回落到默认值并在状态栏提示，不会阻止启动。
 
 ## 键位
@@ -183,7 +183,7 @@ open_queue_after_add: true
 目录结构：
 
 ```text
-ytdlp_tui/
+yt_dlp_controller/
 ├── main.py        # CLI：-D / --yt-dlp / --version
 ├── app.py         # App、状态栏、事件分发、启动恢复、退出保护
 ├── config.py      # 配置目录 / 默认值 / 校验回落 / 读写
@@ -194,3 +194,9 @@ ytdlp_tui/
 ├── app.tcss       # 全局样式（复用四项目 UI 规范）
 └── screens/       # home / new_download / queue / settings / modals
 ```
+
+界面规范与 Textual 8.2.8 实测依据见 `docs/textual-dev-guide.md`。
+
+## 许可证
+
+MIT

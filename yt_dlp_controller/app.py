@@ -67,11 +67,11 @@ class StatusBar(Static):
         self._ensure_timer()
 
 
-class YtdlpTuiApp(App):
+class YtdlpControllerApp(App):
     """yt-dlp 图形化终端界面。"""
 
     CSS_PATH = Path(__file__).parent / "app.tcss"
-    TITLE = "yt-dlp TUI"
+    TITLE = "YT-DLP Controller"
     SUB_TITLE = f"v{__version__}"
     ENABLE_COMMAND_PALETTE = False
 
@@ -266,4 +266,4 @@ class YtdlpTuiApp(App):
         return " · ".join(parts)
 
 
-__all__ = ["YtdlpTuiApp", "StatusBar"]
+__all__ = ["YtdlpControllerApp", "StatusBar"]

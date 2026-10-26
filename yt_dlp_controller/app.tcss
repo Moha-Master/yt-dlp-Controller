@@ -1,4 +1,4 @@
-/* app.tcss — yt-dlp-tui 样式（复用 aliyun-controller 规范，按本项目裁剪） */
+/* app.tcss — yt-dlp-controller 样式（复用 aliyun-controller 规范，按本项目裁剪） */
 
 Screen {
     background: $surface;

@@ -1,14 +1,26 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ytdlp-tui"
+name = "yt_dlp_controller"
 version = "0.1.0"
 description = "基于 Textual 的 yt-dlp 图形化终端界面"
 readme = "README.md"
+authors = [
+    {name = "Moha-Master", email = "hongkongreporter@outlook.com"},
+]
+license = "MIT"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 requires-python = ">=3.10"
-license = { text = "MIT" }
 dependencies = [
     "textual>=8.0",
     "PyYAML>=6.0",
@@ -18,19 +30,24 @@ dependencies = [
 dev = ["ruff>=0.6"]
 
 [project.urls]
-Homepage = "https://github.com/Moha-Master/yt-dlp-TUI"
-Repository = "https://github.com/Moha-Master/yt-dlp-TUI.git"
-GitHub = "https://github.com/Moha-Master/yt-dlp-TUI"
-Issues = "https://github.com/Moha-Master/yt-dlp-TUI/issues"
+Homepage = "https://github.com/Moha-Master/yt-dlp-Controller"
+Repository = "https://github.com/Moha-Master/yt-dlp-Controller.git"
+GitHub = "https://github.com/Moha-Master/yt-dlp-Controller"
+Issues = "https://github.com/Moha-Master/yt-dlp-Controller/issues"
 
 [project.scripts]
-yt-dlp-ctl = "ytdlp_tui.main:main"
+ytdlpctl = "yt_dlp_controller.main:main"
 
-[tool.setuptools]
-packages = ["ytdlp_tui", "ytdlp_tui.screens"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["yt_dlp_controller*"]
+exclude = ["tests*", "venv*"]
+
+[tool.setuptools.package-dir]
+"" = "."
 
 [tool.setuptools.package-data]
-ytdlp_tui = ["app.tcss"]
+yt_dlp_controller = ["*.tcss"]
 
 [tool.ruff]
 line-length = 120

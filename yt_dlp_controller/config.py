@@ -13,9 +13,9 @@ from typing import Any
 
 import yaml
 
-CONFIG_DIR_ENV = "YT_DLP_CTL_CONFIG_DIR"
-YTDLP_PATH_ENV = "YT_DLP_CTL_YTDLP"
-DEFAULT_CONFIG_DIR = "~/.config/yt-dlp-ctl"
+CONFIG_DIR_ENV = "YT_DLP_CONTROLLER_CONFIG_DIR"
+YTDLP_PATH_ENV = "YT_DLP_CONTROLLER_YTDLP"
+DEFAULT_CONFIG_DIR = "~/.config/yt-dlp-controller"
 
 # 格式预设（供界面下拉与 yt-dlp 参数构建共用）
 PRESETS: dict[str, dict[str, str]] = {
@@ -211,7 +211,7 @@ def load_config() -> tuple[dict[str, Any], list[str]]:
     """读取配置。文件缺失时生成默认配置；坏值回落并返回告警。
 
     yt-dlp / ffmpeg 路径留空时自动填入 PATH 探测结果并落盘，方便用户查看与修改；
-    环境变量 ``YT_DLP_CTL_YTDLP`` 仍会覆盖最终运行值。
+    环境变量 ``YT_DLP_CONTROLLER_YTDLP`` 仍会覆盖最终运行值。
     """
     path = get_config_path()
     if not path.exists():

@@ -1,4 +1,4 @@
-# yt-dlp-tui 开发计划（v1）
+# yt-dlp-controller 开发计划（v1）
 
 > 面向执行方（CodeBuddy）的施工图。实施前请先通读 §0~§3，再按 §9 的阶段顺序动手。
 > 界面规范基准：`/tmp/opencode/yt-dlp-tui-ref/UI-SPEC.md`（摘自 `aliyun-controller/AGENTS.md` 第一部分，**必须逐条遵守**）。
@@ -9,7 +9,7 @@
 
 ## 0. 目标与边界
 
-在 `/webservices/yt-dlp-tui` 从零构建一个 Python + Textual 的 TUI，替代 yt-dlp 命令行完成：
+在 `/webservices/yt-dlp-controller` 从零构建一个 Python + Textual 的 TUI，替代 yt-dlp 命令行完成：
 
 - 粘贴链接 → 解析信息 → 选画质/格式 → 加入队列 → 后台并发下载 → 实时进度 → 完成/失败处理
 - 队列支持取消、重试、暂停/继续、详情与日志查看
@@ -51,14 +51,14 @@ python3 -m venv venv
 ## 2. 目录结构
 
 ```text
-/webservices/yt-dlp-tui/
+/webservices/yt-dlp-controller/
 ├── pyproject.toml            # 包元数据、入口脚本、ruff 配置
 ├── requirements.txt          # 同步 dependencies
 ├── README.md                 # 功能、安装、键位表、截图位
 ├── AGENTS.md                 # 第一部分=UI 规范原文；第二部分=本项目约定（阶段 3 写）
 ├── PLAN.md                   # 本文件
 ├── venv/                     # 本地虚拟环境（.gitignore）
-└── ytdlp_tui/
+└── yt_dlp_controller/
     ├── __init__.py           # __version__ = "0.1.0"
     ├── main.py               # CLI: -D/--dir、--version、日志降噪、启动 App
     ├── app.py                # App 子类、StatusBar、全局服务 getter、退出保护
@@ -85,7 +85,7 @@ python3 -m venv venv
 
 ### 3.1 配置 `config.yaml`
 
-路径优先级：`-D/--dir` > 环境变量 `YT_DLP_CTL_CONFIG_DIR` > `~/.config/yt-dlp-ctl`。
+路径优先级：`-D/--dir` > 环境变量 `YT_DLP_CONTROLLER_CONFIG_DIR` > `~/.config/yt-dlp-controller`。
 `main()` 必须在 `import .app` **之前**写入环境变量（同 `aliyun-controller/main.py`）。
 
 ```yaml
@@ -413,12 +413,12 @@ proc = await asyncio.create_subprocess_exec(
 ## 9. 实施阶段（按顺序，每阶段可运行）
 
 ### 阶段 0：骨架跑起来（约 1/5 工作量）
-1. `pyproject.toml`（name `ytdlp-tui`, 命令名 `yt-dlp-ctl`, module `ytdlp_tui`, entry `yt-dlp-ctl = ytdlp_tui.main:main`, deps `textual>=8.0`, `PyYAML`, Python `>=3.10`, ruff 同规范）。
+1. `pyproject.toml`（name `yt_dlp_controller`, 命令名 `ytdlpctl`, module `yt_dlp_controller`, entry `ytdlpctl = yt_dlp_controller.main:main`, deps `textual>=8.0`, `PyYAML`, Python `>=3.10`, ruff 同规范）。
 2. `venv` + 安装（用 §1 的官方源命令）。
 3. 复制 `ui.py` / `widgets.py` / `app.tcss` 并裁剪。
 4. `config.py`、`main.py`、`app.py`（StatusBar + 全局 getter + 退出保护占位）。
 5. `HomeScreen` + 两个占位页（队列/设置）。
-6. **验收**：`./venv/bin/yt-dlp-ctl` 能启动、首页菜单可进出、`Ctrl+Q` 可退出、ruff 零告警。
+6. **验收**：`./venv/bin/ytdlpctl` 能启动、首页菜单可进出、`Ctrl+Q` 可退出、ruff 零告警。
 
 ### 阶段 1：能下载（MVP，约 2/5）
 1. `ytdlp.py`：`find_ytdlp()` / `version()` / `build_args()` / `runner 行解析` 单元级函数。
@@ -456,14 +456,14 @@ proc = await asyncio.create_subprocess_exec(
 在 `/tmp/opencode/` 写**一次性** headless 脚本（不入库），用 `App.run_test(size=(120,40))` 与 `(80,28)` 各跑一遍：
 
 ```python
-# /tmp/opencode/ytdlp_tui_check.py 参考骨架
+# /tmp/opencode/yt_dlp_controller_check.py 参考骨架
 import asyncio, tempfile, os
-os.environ["YT_DLP_CTL_CONFIG_DIR"] = tempfile.mkdtemp()
-from ytdlp_tui.app import YtdlpTuiApp
-from ytdlp_tui.queue import QueueManager
+os.environ["YT_DLP_CONTROLLER_CONFIG_DIR"] = tempfile.mkdtemp()
+from yt_dlp_controller.app import YtdlpControllerApp
+from yt_dlp_controller.queue import QueueManager
 
 async def main():
-    app = YtdlpTuiApp()
+    app = YtdlpControllerApp()
     app._queue = FakeQueue()          # 带状态、按脚本推进事件
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
@@ -486,14 +486,14 @@ asyncio.run(main())
 - [ ] `Esc` 层级：模态 > 菜单 > 返回；`Ctrl+Q` 处处生效
 - [ ] 设置保存 → `config.yaml` 正确 → 并发数热更新
 - [ ] 重启恢复：`running` 变 `interrupted` 并给出续传选项
-- [ ] `ruff check ytdlp_tui` 零告警
+- [ ] `ruff check yt_dlp_controller` 零告警
 - [ ] 真实本地 HTTP 端到端下载成功
 
 ---
 
 ## 11. 交付定义（Definition of Done）
 
-1. `./venv/bin/yt-dlp-ctl` 可启动，`--version`、`-D` 可用。
+1. `./venv/bin/ytdlpctl` 可启动，`--version`、`-D` 可用。
 2. 阶段 1 的本地端到端用例跑通，阶段 2 功能全部可见可用。
 3. `README.md` 键位表与实际 `BINDINGS` 一致（逐条核对）。
 4. `ruff check` 零告警；代码内无 `print`。

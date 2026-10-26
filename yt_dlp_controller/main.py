@@ -23,7 +23,7 @@ def _setup_logging() -> None:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="yt-dlp 图形化终端界面（Textual TUI）")
+    parser = argparse.ArgumentParser(description="yt-dlp 控制台工具（Textual TUI）")
     parser.add_argument(
         "-D",
         "--dir",
@@ -39,7 +39,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"yt-dlp-ctl {__version__}",
+        version=f"ytdlpctl {__version__}",
     )
     return parser.parse_args(argv)
 
@@ -51,9 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.ytdlp_path:
         os.environ[YTDLP_PATH_ENV] = args.ytdlp_path
 
-    from .app import YtdlpTuiApp
+    from .app import YtdlpControllerApp
 
-    YtdlpTuiApp().run()
+    YtdlpControllerApp().run()
     return 0
 
 

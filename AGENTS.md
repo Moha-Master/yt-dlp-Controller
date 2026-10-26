@@ -1,4 +1,4 @@
-# AGENTS.md — yt-dlp-tui
+# AGENTS.md — yt-dlp-controller
 
 > 第一部分为四项目共用 UI 规范原文（摘自 `aliyun-controller/AGENTS.md`，逐条遵守）；第二部分为本项目专属约定。
 
@@ -206,11 +206,11 @@
 
 ---
 
-# 第二部分 · 本项目约定（yt-dlp-tui）
+# 第二部分 · 本项目约定（yt-dlp-controller）
 
 ## 15. 项目定位
 
-- 入口命令 `yt-dlp-ctl`，包名 `ytdlp_tui`，配置目录 `~/.config/yt-dlp-ctl`（`-D/--dir` > 环境变量 `YT_DLP_CTL_CONFIG_DIR` > 默认值）。
+- 入口命令 `ytdlpctl`，包名 `yt_dlp_controller`（PyPI 分发名 `yt-dlp-controller`），配置目录 `~/.config/yt-dlp-controller`（`-D/--dir` > 环境变量 `YT_DLP_CONTROLLER_CONFIG_DIR` > 默认值）。
 - 调用方式固定为**子进程调用 `yt-dlp` CLI**，不 `import yt_dlp`；参数构建集中在 `ytdlp.build_args()`。
 - 依赖下限：Python >= 3.10、`textual >= 8.0`、`PyYAML`。外部命令 `yt-dlp` 必须可用，`ffmpeg` 用于合并 / 后处理。
 
@@ -259,7 +259,7 @@
   python3 -m venv venv
   ./venv/bin/pip install -i https://pypi.org/simple -e ".[dev]"
   ```
-- `./venv/bin/ruff check ytdlp_tui` 必须零告警（`line-length=120`，`select=["E","F","W","I","UP","B","C4"]`，忽略 `E501`）。
+- `./venv/bin/ruff check yt_dlp_controller` 必须零告警（`line-length=120`，`select=["E","F","W","I","UP","B","C4"]`，忽略 `E501`）。
 - 验证脚本一律放 `/tmp/opencode/`，不提交进仓库；headless 用 `App.run_test(size=(120,40))` 与 `(80,28)` 各跑一遍。
 - 禁止修改 `/webservices/aliyun-controller`；禁止 `git commit` / `git init` 等写操作。
 
