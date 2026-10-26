@@ -444,7 +444,11 @@ class QueueScreen(PageScreen):
 
     @work
     async def _cancel(self, task_id: str) -> None:
-        await self.app.get_queue().cancel(task_id)
+        try:
+            await self.app.get_queue().cancel(task_id)
+        except Exception as exc:  # 进程控制失败不应拖垮整个 TUI
+            self.app.notify_err(f"取消失败：{exc}")
+            return
         self.app.notify_ok("已取消任务")
 
     def action_retry_task(self) -> None:
@@ -456,7 +460,11 @@ class QueueScreen(PageScreen):
 
     @work
     async def _retry(self, task_id: str) -> None:
-        ok = await self.app.get_queue().retry(task_id)
+        try:
+            ok = await self.app.get_queue().retry(task_id)
+        except Exception as exc:
+            self.app.notify_err(f"重试失败：{exc}")
+            return
         if ok:
             self.app.notify_ok("已重新加入队列")
         else:

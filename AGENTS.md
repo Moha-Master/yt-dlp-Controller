@@ -238,7 +238,7 @@
 
 ## 18. 进程与并发约定
 
-- 子进程一律 `start_new_session=True`，取消用 `os.killpg` 杀**整个进程组**（连带 ffmpeg）；退出前 `QueueManager.shutdown()` 必须等待全部子进程结束。
+- 子进程在 POSIX 下用 `start_new_session=True` 建立独立会话，取消 / 强杀走 `os.killpg` 打**整个进程组**（连带 ffmpeg）；Windows 无 `killpg`，走 `proc.terminate()` 与 `taskkill /PID <pid> /T /F` 收子进程。退出前 `QueueManager.shutdown()` 必须等待全部子进程结束。
 - 暂停 / 继续仅 POSIX 提供（`SIGSTOP` / `SIGCONT`）；非 POSIX 不渲染按钮、不注册 `Ctrl+P` 绑定。
 - 并发由 `asyncio.Semaphore` 语义的 `pump()` 控制（`max_concurrent_tasks`），设置保存后 `apply_settings()` 热更新。
 - 队列事件由 App **单消费者**每 200ms 批量 drain，再分发给栈内实现了 `apply_queue_events()` 的屏幕；表格只按 task id `update_cell()`，禁止每帧重建。

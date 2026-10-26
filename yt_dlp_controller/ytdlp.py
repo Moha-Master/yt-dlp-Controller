@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -287,6 +288,15 @@ def build_args(task: dict[str, Any], settings: dict[str, Any]) -> list[str]:
 # ---------------------------------------------------------------- 链接解析
 
 
+def _kill_proc_tree(proc: asyncio.subprocess.Process) -> None:
+    """结束 probe 子进程；POSIX 下连带整个进程组。"""
+    if os.name == "posix" and hasattr(os, "killpg") and hasattr(os, "getpgid"):
+        with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+        proc.kill()
+
+
 async def probe(url: str, settings: dict[str, Any]) -> ProbeResult:
     """解析链接信息（视频或播放列表）。"""
     binary = ytdlp_binary(settings)
@@ -298,27 +308,23 @@ async def probe(url: str, settings: dict[str, Any]) -> ProbeResult:
     args.append(url)
 
     env = {**os.environ, "PYTHONIOENCODING": "utf-8", "NO_COLOR": "1"}
-    proc = await asyncio.create_subprocess_exec(
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        start_new_session=True,
-        env=env,
-    )
+    kwargs: dict[str, Any] = {
+        "stdout": asyncio.subprocess.PIPE,
+        "stderr": asyncio.subprocess.PIPE,
+        "env": env,
+    }
+    if os.name == "posix":
+        kwargs["start_new_session"] = True
+
+    proc = await asyncio.create_subprocess_exec(*args, **kwargs)
     try:
         out, err = await asyncio.wait_for(proc.communicate(), PROBE_TIMEOUT)
     except asyncio.TimeoutError:
-        with contextlib.suppress(OSError):
-            os.killpg(os.getpgid(proc.pid), 9)
-        with contextlib.suppress(OSError):
-            proc.kill()
+        _kill_proc_tree(proc)
         raise YtdlpError("解析超时（60 秒），请检查网络或代理设置") from None
     except asyncio.CancelledError:
         # 用户中途返回 / 关闭页面：连同子进程一起收掉，避免孤儿进程
-        with contextlib.suppress(OSError):
-            os.killpg(os.getpgid(proc.pid), 9)
-        with contextlib.suppress(OSError):
-            proc.kill()
+        _kill_proc_tree(proc)
         raise
 
     stdout = out.decode("utf-8", errors="replace").strip()

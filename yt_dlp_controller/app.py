@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from pathlib import Path
 
 from rich.spinner import SPINNERS
@@ -176,10 +177,10 @@ class YtdlpControllerApp(App):
     @work
     async def _shutdown_and_exit(self) -> None:
         self._quitting = True
-        try:
+        # 收尾阶段的异常不应阻止退出（否则窗口会带着 traceback 卡住）
+        with contextlib.suppress(Exception):
             await self.get_queue().shutdown()
-        finally:
-            self.exit()
+        self.exit()
 
     # ------------------------------------------------------------ 启动
 

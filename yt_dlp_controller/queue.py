@@ -11,6 +11,7 @@ import contextlib
 import json
 import os
 import signal
+import subprocess
 import time
 import uuid
 from collections.abc import Callable
@@ -54,6 +55,14 @@ STATUS_LABELS = {
 MAX_LOG_LINES = 300
 SAVE_INTERVAL = 5.0
 KILL_GRACE = 3.0
+
+IS_WINDOWS = os.name == "nt"
+
+# POSIX 才有 killpg/getpgid：用它把 yt-dlp 与 ffmpeg 作为一个进程组一起管理
+POSIX_GROUP_SIGNALS = os.name == "posix" and hasattr(os, "killpg") and hasattr(os, "getpgid")
+
+# start_new_session 是 POSIX 概念，Windows 不认（会走 CreateProcess 的 flags 语义）
+SESSION_KWARGS: dict[str, Any] = {"start_new_session": True} if os.name == "posix" else {}
 
 
 @dataclass
@@ -446,17 +455,70 @@ class QueueManager:
 
     @staticmethod
     def can_pause() -> bool:
-        return os.name == "posix" and hasattr(os, "killpg")
+        return POSIX_GROUP_SIGNALS
 
-    def _signal_group(self, pid: int, sig: int) -> bool:
+    @staticmethod
+    def _signal_proc(proc: asyncio.subprocess.Process, sig: int) -> bool:
+        """给单个进程发信号（POSIX 下连带整个进程组）。"""
+        if proc.returncode is not None:
+            return False
+        if POSIX_GROUP_SIGNALS:
+            try:
+                os.killpg(os.getpgid(proc.pid), sig)
+                return True
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
         try:
-            os.killpg(os.getpgid(pid), sig)
+            proc.send_signal(sig)
+            return True
+        except (ProcessLookupError, PermissionError, OSError, ValueError):
+            return False
+
+    @staticmethod
+    def _terminate(proc: asyncio.subprocess.Process) -> bool:
+        """请求终止：POSIX 杀进程组；Windows 走原生 terminate。"""
+        if proc.returncode is not None:
+            return False
+        if POSIX_GROUP_SIGNALS:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                return True
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
+        try:
+            proc.terminate()
+            return True
         except (ProcessLookupError, PermissionError, OSError):
             return False
-        return True
+
+    @staticmethod
+    async def _kill_tree(proc: asyncio.subprocess.Process) -> None:
+        """强制结束进程：POSIX 杀进程组；Windows 用 taskkill /T 连带 ffmpeg。"""
+        if proc.returncode is not None:
+            return
+        if POSIX_GROUP_SIGNALS:
+            with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            return
+        if IS_WINDOWS:
+            # Windows 无进程组信号，用 taskkill /T /F 收集子进程（合并 / 后处理时的 ffmpeg）
+            try:
+                await asyncio.to_thread(
+                    subprocess.run,
+                    ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=10,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass
+        if proc.returncode is None:
+            with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+                proc.kill()
 
     async def cancel(self, task_id: str) -> None:
-        """取消任务：排队中直接置位；运行中杀整个进程组（连带 ffmpeg）。"""
+        """取消任务：排队中直接置位；运行中终止整个进程树（连带 ffmpeg）。"""
         task = self.tasks.get(task_id)
         if task is None:
             return
@@ -474,19 +536,20 @@ class QueueManager:
         proc = self._procs.get(task_id)
         if proc is None or proc.returncode is not None:
             return
-        if task.status == PAUSED:
-            self._signal_group(proc.pid, signal.SIGCONT)
-        self._signal_group(proc.pid, signal.SIGTERM)
+        if task.status == PAUSED and POSIX_GROUP_SIGNALS:
+            # 暂停态先恢复，否则 SIGTERM 会滞留在停止的进程里
+            self._signal_proc(proc, signal.SIGCONT)
+        self._terminate(proc)
         self._emit("task", task)
-        job = asyncio.create_task(self._force_kill(task_id, proc.pid))
+        job = asyncio.create_task(self._force_kill(task_id, proc))
         self._killer_jobs.add(job)
         job.add_done_callback(self._killer_jobs.discard)
 
-    async def _force_kill(self, task_id: str, pid: int) -> None:
+    async def _force_kill(self, task_id: str, proc: asyncio.subprocess.Process) -> None:
         await asyncio.sleep(KILL_GRACE)
-        proc = self._procs.get(task_id)
-        if proc is not None and proc.returncode is None:
-            self._signal_group(pid, signal.SIGKILL)
+        current = self._procs.get(task_id) or proc
+        if current.returncode is None:
+            await self._kill_tree(current)
 
     def pause(self, task_id: str) -> bool:
         if not self.can_pause():
@@ -495,7 +558,7 @@ class QueueManager:
         proc = self._procs.get(task_id)
         if task is None or proc is None or task.status != RUNNING:
             return False
-        if not self._signal_group(proc.pid, signal.SIGSTOP):
+        if not self._signal_proc(proc, signal.SIGSTOP):
             return False
         task.status = PAUSED
         task.speed = 0.0
@@ -510,14 +573,14 @@ class QueueManager:
         proc = self._procs.get(task_id)
         if task is None or proc is None or task.status != PAUSED:
             return False
-        if not self._signal_group(proc.pid, signal.SIGCONT):
+        if not self._signal_proc(proc, signal.SIGCONT):
             return False
         task.status = RUNNING
         self._emit_state(task)
         return True
 
     async def shutdown(self) -> None:
-        """退出前清理：终止全部进程组并落盘。"""
+        """退出前清理：终止全部子进程并落盘。"""
         if self._closing:
             return
         self._closing = True
@@ -526,16 +589,16 @@ class QueueManager:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._save_job
             self._save_job = None
-        for proc in list(self._procs.values()):
-            if proc.returncode is None:
-                self._signal_group(proc.pid, signal.SIGCONT)
-                self._signal_group(proc.pid, signal.SIGTERM)
+        live = [p for p in self._procs.values() if p.returncode is None]
+        for proc in live:
+            if POSIX_GROUP_SIGNALS:
+                self._signal_proc(proc, signal.SIGCONT)
+            self._terminate(proc)
         runners = [r for r in self._runners.values() if not r.done()]
         if runners:
             _, pending = await asyncio.wait(runners, timeout=KILL_GRACE)
-            for proc in list(self._procs.values()):
-                if proc.returncode is None:
-                    self._signal_group(proc.pid, signal.SIGKILL)
+            for proc in live:
+                await self._kill_tree(proc)
             if pending:
                 await asyncio.wait(pending, timeout=2.0)
         for job in list(self._killer_jobs):
@@ -584,8 +647,8 @@ class QueueManager:
                 *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                start_new_session=True,
                 env=env,
+                **SESSION_KWARGS,
             )
         except OSError as exc:
             self._finish_failed(task, f"无法启动下载进程：{exc}", "")
@@ -593,8 +656,8 @@ class QueueManager:
 
         self._procs[task.id] = proc
         if self._closing:
-            # 启动与退出竞态：立刻终止刚拉起的进程组
-            self._signal_group(proc.pid, signal.SIGTERM)
+            # 启动与退出竞态：立刻终止刚拉起的进程
+            self._terminate(proc)
         returncode = -1
         try:
             stream = proc.stdout
