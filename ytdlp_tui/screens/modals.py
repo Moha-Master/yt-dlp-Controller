@@ -225,7 +225,7 @@ class TaskDetailModal(ModalScreen["str | None"]):
                         with Horizontal(classes="kv-row"):
                             yield Static(label, classes="kv-label sm")
                             yield Static(value, classes="kv-value")
-                yield Static("命令（只读，可选中复制）", classes="det-sec")
+                yield Static("命令", classes="det-sec")
                 yield TextArea(
                     self._command_text(task),
                     read_only=True,

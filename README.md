@@ -21,9 +21,9 @@
 
 ## 安装
 
-建议使用 pipx:
+使用 pip 进行安装:
 ```bash
-pipx install yt-dlp-tui
+pip install yt-dlp-tui
 ```
 
 ## 启动

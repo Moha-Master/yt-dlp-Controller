@@ -273,7 +273,7 @@ class SettingsScreen(PageScreen):
                 "自动检测代理",
                 kind="switch",
                 value="on" if self._config.get("auto_proxy", True) else "",
-                hint="开启后不传 --proxy，由 yt-dlp 自动读取 HTTPS_PROXY / HTTP_PROXY / ALL_PROXY",
+                hint="由 yt-dlp 读取 HTTPS_PROXY / HTTP_PROXY / ALL_PROXY",
             ),
             FormField(
                 "proxy",
@@ -281,21 +281,21 @@ class SettingsScreen(PageScreen):
                 value=str(self._config.get("proxy", "")),
                 placeholder=proxy_placeholder,
                 disabled_by="auto_proxy",
-                hint='关闭自动检测后生效；留空 = 直连（--proxy ""）',
+                hint='留空 = 直连；关闭自动检测后生效',
             ),
             FormField(
                 "use_system_certs",
                 "使用系统证书库",
                 kind="switch",
                 value="on" if self._config.get("use_system_certs") else "",
-                hint="读取系统证书库，以便使用自签名根证书",
+                hint="改用系统证书库，支持自签名根证书",
             ),
             FormField(
                 "no_check_certificates",
                 "跳过证书校验",
                 kind="switch",
                 value="on" if self._config.get("no_check_certificates") else "",
-                hint="完全不校验 HTTPS 证书，仅在知道自己在做什么的情况下开启",
+                hint="不校验 HTTPS 证书，仅用于自签名或中间人代理",
             ),
             FormField(
                 "cookies_file",

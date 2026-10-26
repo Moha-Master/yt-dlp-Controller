@@ -100,11 +100,11 @@ class QueueScreen(PageScreen):
         self._narrow = False
         self._search = ""
         hint = (
-            "↑↓ 选择 · 回车 详情 · Ctrl+N 新建 · Ctrl+P 暂停/继续 · Ctrl+X 取消 · "
-            "Del 移除 · Ctrl+R 刷新 · / 搜索 · Esc/Ctrl+C 返回"
+            "↑↓ 选择 · 回车 详情 · Ctrl+N 新建 · Ctrl+P 暂停 · Ctrl+X 取消 · "
+            "Del 移除 · / 搜索 · Esc 返回"
         )
         if not QueueManager.can_pause():
-            hint = hint.replace("Ctrl+P 暂停/继续 · ", "")
+            hint = hint.replace("Ctrl+P 暂停 · ", "")
         self.HINT = hint
 
     def compose_toolbar(self):
@@ -363,7 +363,7 @@ class QueueScreen(PageScreen):
                 value=str(current),
                 validator=validator,
                 error="请输入 1-8 之间的整数",
-                hint="保存后立即生效，正在运行的任务不受影响",
+                hint="立即生效，不影响运行中的任务",
             ),
             self._apply_concurrency,
         )

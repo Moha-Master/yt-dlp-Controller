@@ -101,7 +101,7 @@ class NewDownloadScreen(PageScreen):
             with Horizontal(classes="filter-row"):
                 yield Static("链接", classes="fl-label")
                 yield Input(
-                    placeholder="粘贴视频或播放列表链接，使用空格 / 逗号分隔多条",
+                    placeholder="粘贴链接，空格或逗号分隔多条",
                     compact=True,
                     id="nd-url",
                 )
@@ -210,12 +210,9 @@ class NewDownloadScreen(PageScreen):
         self.query_one("#nd-title", Static).update(Text(shorten(result.title, 120)))
         self.query_one("#nd-uploader", Static).update(Text(result.uploader or "—"))
         self.query_one("#nd-duration", Static).update(Text(human_duration(result.duration)))
-        note = "支持视频、播放列表；播放列表会先列出条目再决定范围"
+        note = "播放列表将先列出条目再选择范围"
         if len(self._urls) > 1:
-            note = (
-                f"已解析第一条；另有 {len(self._urls) - 1} 条链接将使用相同预设入队"
-                "（选项面板只反映第一条）"
-            )
+            note = f"已解析第一条；其余 {len(self._urls) - 1} 条同预设入队，选项仅对第一条生效"
         self.query_one("#nd-note", Static).update(Text(note, style=STYLE_DIM if len(self._urls) > 1 else ""))
 
         if result.is_playlist:
@@ -443,7 +440,7 @@ class NewDownloadScreen(PageScreen):
             ),
         ]
         self.app.push_screen(
-            FormModal("高级选项（仅本次任务）", fields, message="留空或与全局一致表示继承设置"),
+            FormModal("高级选项（仅本次任务）", fields, message="留空 = 继承全局设置"),
             self._on_advanced_done,
         )
 
@@ -469,7 +466,7 @@ class NewDownloadScreen(PageScreen):
     def _on_paste(self) -> None:
         text = (self.app.clipboard or "").strip()
         if not text:
-            self.app.notify_warn("无法读取系统剪贴板，请在输入框按 Ctrl+V 粘贴后回车解析")
+            self.app.notify_warn("剪贴板不可用，请按 Ctrl+V 粘贴")
             self.query_one("#nd-url", Input).focus()
             return
         self.query_one("#nd-url", Input).value = text

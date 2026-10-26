@@ -82,9 +82,9 @@ HINT_PICK = "输入筛选 · ↑↓ 移动 · 回车 确认 · Esc 取消"
 HINT_MENU = "↑↓ 移动 · 回车 确认 · Ctrl+Q 退出"
 # 文本编辑模式（焦点在 Input / TextArea）：GUI 风编辑键位，输入框聚焦时替换页面 HINT
 HINT_FORM = "Tab 轮切字段 · Enter 提交 · Esc/Ctrl+C 取消"
-EDIT_HINT = "Home/End 行首/行尾 · Ctrl+Shift+A 全选 · Ctrl+X/C/V 剪切/复制/粘贴 · Esc/Ctrl+C 返回"
-HINT_FORM_EDIT = "Home/End 行首/行尾 · Ctrl+Shift+A 全选 · Ctrl+X/C/V 剪切/复制/粘贴 · Enter 提交 · Esc/Ctrl+C 取消"
-HINT_FORM_TA = "Home/End 行首/行尾 · Ctrl+Shift+A 全选 · Ctrl+X/C/V 剪切/复制/粘贴 · Ctrl+Z/Y 撤销/重做 · Esc/Ctrl+C 取消"
+EDIT_HINT = "Home/End 行首/行尾 · Ctrl+Shift+A 全选 · Esc/Ctrl+C 返回"
+HINT_FORM_EDIT = "Home/End 行首/行尾 · Ctrl+Shift+A 全选 · Enter 提交 · Esc/Ctrl+C 取消"
+HINT_FORM_TA = "Home/End 行首/行尾 · Ctrl+Shift+A 全选 · Ctrl+Z/Y 撤销/重做 · Esc/Ctrl+C 取消"
 
 
 # ---------------------------------------------------------------- 模糊匹配
