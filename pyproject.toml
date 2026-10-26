@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yt_dlp_controller"
-version = "0.1.0"
+version = "0.1.1"
 description = "基于 Textual 的 yt-dlp 图形化终端界面"
 readme = "README.md"
 authors = [
