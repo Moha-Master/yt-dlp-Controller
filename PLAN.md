@@ -263,12 +263,11 @@ proc = await asyncio.create_subprocess_exec(
 - Logo：`YT-DLP` 艺术字（每行 `rstrip()`，`LOGO_WIDTH = max(cell_len(line))`），版本号右对齐，窄屏（`width < LOGO_WIDTH + 6`）降级为 `YT-DLP TUI` 普通文本。
 - 菜单（`OptionList` + 描述右对齐 + `MenuMarquee`）：
   1. 新建下载 —— 解析链接、选格式并加入队列
-  2. 任务队列 —— 查看进度、暂停、取消、重试
-  3. 下载历史 —— 已完成/失败记录
-  4. 设置 —— 下载目录、格式、网络与后处理
-  5. 退出程序 —— 有任务时会先确认
-- 键位：`↑↓`、`Enter`、`1-5`、`Esc`/`Ctrl+C` 退出、`Ctrl+Q` 全局退出。
-- 底部 `HintBar`：`↑↓ 选择 · 回车 进入 · 1-5 直达 · Esc/Ctrl+C 退出`。
+  2. 任务队列 —— 查看进度、暂停、取消、重试；下载历史与队列同屏，按状态筛选查看
+  3. 设置 —— 下载目录、格式、网络与后处理
+  4. 退出程序 —— 有任务时会先确认
+- 键位：`↑↓`、`Enter`、`1-4`、`Esc`/`Ctrl+C` 退出、`Ctrl+Q` 全局退出。
+- 底部 `HintBar`：`↑↓ 选择 · 回车 进入 · 1-4 直达 · Esc/Ctrl+C 退出`。
 
 ### 5.2 NewDownloadScreen（`PageScreen`）
 
@@ -319,7 +318,7 @@ proc = await asyncio.create_subprocess_exec(
 - 表格：`make_table()` → `ClickTable`，`cursor_type="row"`，行 key = `task.id`，列宽 `fit_table_columns([4, 40, 9, 18, 9, 8, 9])`，`on_resize` 重算。
 - 进度列：文本进度条 + 百分比，按状态着色（运行=primary、完成=ok、失败=err、暂停/中断=warn）。宽度固定，避免抖动。
 - **增量更新**：`table.update_cell(task.id, "progress"|"speed"|"eta"|"size", value)`；仅「任务集合变化」时全量 `load_rows`。
-- 状态筛选：按钮切换（不是 TabbedContent），历史页 = 队列页以 `initial_filter="done"` 打开。
+- 状态筛选：按钮切换（不是 TabbedContent）；下载历史不是独立页面，而是队列页的一个筛选视图（`全部 / 进行中 / 已完成 / 失败`）。
 - `Ctrl+P` 暂停/继续、`Ctrl+X` 取消（`Input` 聚焦时由控件自身处理剪切，不冲突）、`Delete` 移除（`ConfirmModal`，`default_yes=False`）、`Enter` 详情。
 - 有任务运行中退出程序：`ConfirmModal("仍有 N 个任务进行中，退出将中断下载", default_yes=False)`。
 - 底部状态栏显示汇总：「↓ 3.2 MiB/s · 2 进行中 · 1 失败」。
@@ -348,7 +347,7 @@ proc = await asyncio.create_subprocess_exec(
 |---|---|---|
 | 全局 | `Ctrl+Q` | 任意界面退出（priority） |
 | 全局 | `Tab`/`Shift+Tab` | 焦点轮切 |
-| 主菜单 | `↑↓` `Enter` `1-5` | 选择/进入/直达 |
+| 主菜单 | `↑↓` `Enter` `1-4` | 选择/进入/直达 |
 | 主菜单 | `Esc`/`Ctrl+C` | 退出程序 |
 | 功能页 | `Esc`/`Ctrl+C` | 返回（浮层>模态>页面） |
 | 功能页 | `Ctrl+R` | 刷新（编辑态禁用） |
@@ -477,7 +476,7 @@ asyncio.run(main())
 
 必测清单：
 - [ ] 各页挂载无异常（宽/窄两尺寸）
-- [ ] 首页 `1-5` 直达、窄屏 logo 降级
+- [ ] 首页 `1-4` 直达、窄屏 logo 降级
 - [ ] `#page.virtual_size.height <= container_size.height`（外层不滚动）
 - [ ] 表格列宽和 ≈ `region.width - 2`，无横向滚动条
 - [ ] 单击行打开详情，**不重复压栈**

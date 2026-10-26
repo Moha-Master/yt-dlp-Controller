@@ -13,21 +13,19 @@ from ..widgets import HintBar, MenuMarquee
 
 
 class HomeScreen(Screen):
-    """功能主菜单：新建下载 / 任务队列 / 下载历史 / 设置 / 退出。"""
+    """功能主菜单：新建下载 / 任务队列（含历史） / 设置 / 退出。"""
 
     BINDINGS = [
         Binding("escape,ctrl+c", "quit_app", "退出"),
         Binding("1", "menu('new')", "新建下载", show=False),
         Binding("2", "menu('queue')", "任务队列", show=False),
-        Binding("3", "menu('history')", "下载历史", show=False),
-        Binding("4", "menu('settings')", "设置", show=False),
-        Binding("5", "menu('quit')", "退出", show=False),
+        Binding("3", "menu('settings')", "设置", show=False),
+        Binding("4", "menu('quit')", "退出", show=False),
     ]
 
     ITEMS = [
         ("new", "新建下载", "向队列中加入一些新的任务"),
-        ("queue", "任务队列", "查看和管理现有的任务"),
-        ("history", "下载历史", "过去的任务记录"),
+        ("queue", "任务队列", "进行中的任务与下载历史"),
         ("settings", "设置", "对程序的行为进行自定义"),
         ("quit", "退出程序", "请确认任务是否完成"),
     ]
@@ -42,7 +40,7 @@ class HomeScreen(Screen):
                 yield Static(Text("YT-DLP TUI", style="bold"), id="home-plain")
                 yield Static(f"v{__version__}", id="home-version")
                 yield OptionList(id="home-list")
-        yield HintBar("↑↓ 选择 · 回车 进入 · 1-5 直达 · Esc/Ctrl+C 退出", classes="page-hint")
+        yield HintBar("↑↓ 选择 · 回车 进入 · 1-4 直达 · Esc/Ctrl+C 退出", classes="page-hint")
 
     def on_mount(self) -> None:
         ol = self.query_one("#home-list", OptionList)
@@ -78,8 +76,6 @@ class HomeScreen(Screen):
             self.app.push_screen(NewDownloadScreen())
         elif key == "queue":
             self.app.push_screen(QueueScreen())
-        elif key == "history":
-            self.app.push_screen(QueueScreen(initial_filter="done"))
         elif key == "settings":
             self.app.push_screen(SettingsScreen())
 

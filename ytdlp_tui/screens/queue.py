@@ -1,4 +1,4 @@
-"""队列 / 历史屏：表格实时进度、筛选、暂停 / 取消 / 重试 / 移除与详情。"""
+"""任务队列屏：一张表同时承载进行中任务与下载历史，按状态筛选、暂停 / 取消 / 重试 / 移除与详情。"""
 
 from __future__ import annotations
 
@@ -16,8 +16,10 @@ from ..queue import (
     CANCELLED,
     COMPLETED,
     FAILED,
+    INTERRUPTED,
     PAUSED,
     POSTPROCESSING,
+    QUEUED,
     RUNNING,
     STATUS_LABELS,
     QueueEvent,
@@ -63,9 +65,21 @@ NARROW_WEIGHTS = [4, 40, 10, 20, 10]
 
 NARROW_BREAKPOINT = 96
 
+# 排序权重：活跃任务优先，历史记录沉底（失败比已完成更靠前，便于发现异常）
+STATUS_RANK = {
+    RUNNING: 0,
+    POSTPROCESSING: 1,
+    PAUSED: 2,
+    QUEUED: 3,
+    INTERRUPTED: 4,
+    FAILED: 5,
+    COMPLETED: 6,
+    CANCELLED: 7,
+}
+
 
 class QueueScreen(PageScreen):
-    """任务队列 / 下载历史（同一屏，按筛选与标题区分）。"""
+    """任务队列：进行中任务与下载历史同表展示，按状态筛选区分。"""
 
     TITLE = "任务队列"
 
@@ -76,10 +90,9 @@ class QueueScreen(PageScreen):
         Binding("/", "focus_search", "搜索", show=False),
     ] + ([Binding("ctrl+p", "toggle_pause", "暂停/继续", show=False)] if QueueManager.can_pause() else [])
 
-    def __init__(self, initial_filter: str = "all") -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.filter_key = initial_filter if initial_filter in {k for k, _ in FILTERS} else "all"
-        self.TITLE = "下载历史" if initial_filter == "done" else "任务队列"
+        self.filter_key = "all"
         self._display: list[Task] = []
         self._display_ids: list[str] = []
         self._status_cache: dict[str, str] = {}
@@ -139,7 +152,7 @@ class QueueScreen(PageScreen):
 
     def _visible_tasks(self) -> list[Task]:
         tasks = [t for t in self.app.get_queue().tasks.values() if self._matches(t)]
-        tasks.sort(key=lambda t: t.created_at, reverse=True)
+        tasks.sort(key=lambda t: (STATUS_RANK.get(t.status, 99), -t.created_at))
         return tasks
 
     def _ensure_columns(self, table: DataTable) -> tuple[list[tuple[str, str]], list[float]]:
