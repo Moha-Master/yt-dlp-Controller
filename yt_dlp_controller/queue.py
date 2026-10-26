@@ -49,7 +49,7 @@ STATUS_LABELS = {
     INTERRUPTED: "已中断",
     COMPLETED: "已完成",
     FAILED: "失败",
-    CANCELLED: "已取消",
+    CANCELLED: "已停止",
 }
 
 MAX_LOG_LINES = 300
@@ -518,7 +518,7 @@ class QueueManager:
                 proc.kill()
 
     async def cancel(self, task_id: str) -> None:
-        """取消任务：排队中直接置位；运行中终止整个进程树（连带 ffmpeg）。"""
+        """停止任务：排队中直接置位；运行中终止整个进程树（连带 ffmpeg）。"""
         task = self.tasks.get(task_id)
         if task is None:
             return

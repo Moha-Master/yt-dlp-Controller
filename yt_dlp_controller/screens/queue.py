@@ -1,4 +1,4 @@
-"""任务队列屏：一张表同时承载进行中任务与下载历史，按状态筛选、暂停 / 取消 / 重试 / 移除与详情。"""
+"""任务队列屏：一张表同时承载进行中任务与下载历史，按状态筛选、暂停 / 停止 / 重试 / 删除与详情。"""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ from ..widgets import (
     rcell,
     shorten,
 )
-from ..ytdlp import human_bytes, human_eta, human_speed, open_directory, progress_bar
+from ..ytdlp import human_bytes, human_eta, human_speed, progress_bar
 from .modals import TaskDetailModal
 
 FILTERS = [("all", "全部"), ("active", "进行中"), ("done", "已完成"), ("failed", "失败")]
@@ -77,6 +77,12 @@ STATUS_RANK = {
     CANCELLED: 7,
 }
 
+# 控制行按钮的可用条件（选中任务后才点亮）
+STOPPABLE = {QUEUED, RUNNING, POSTPROCESSING, PAUSED, INTERRUPTED}
+PAUSABLE = {RUNNING, PAUSED}
+RETRYABLE = {INTERRUPTED, FAILED, COMPLETED, CANCELLED}
+REMOVABLE = RETRYABLE | {QUEUED}
+
 
 class QueueScreen(PageScreen):
     """任务队列：进行中任务与下载历史同表展示，按状态筛选区分。"""
@@ -85,8 +91,8 @@ class QueueScreen(PageScreen):
 
     BINDINGS = [
         Binding("ctrl+n", "new_download", "新建", show=False),
-        Binding("ctrl+x", "cancel_task", "取消", show=False),
-        Binding("delete", "remove_task", "移除", show=False),
+        Binding("ctrl+x", "stop_task", "停止", show=False),
+        Binding("delete", "remove_task", "删除", show=False),
         Binding("/", "focus_search", "搜索", show=False),
     ] + ([Binding("ctrl+p", "toggle_pause", "暂停/继续", show=False)] if QueueManager.can_pause() else [])
 
@@ -100,8 +106,8 @@ class QueueScreen(PageScreen):
         self._narrow = False
         self._search = ""
         hint = (
-            "↑↓ 选择 · 回车 详情 · Ctrl+N 新建 · Ctrl+P 暂停 · Ctrl+X 取消 · "
-            "Del 移除 · / 搜索 · Esc 返回"
+            "↑↓ 选择 · 回车 详情 · Ctrl+N 新建 · Ctrl+P 暂停 · Ctrl+X 停止 · "
+            "Del 删除 · / 搜索 · Esc 返回"
         )
         if not QueueManager.can_pause():
             hint = hint.replace("Ctrl+P 暂停 · ", "")
@@ -120,11 +126,10 @@ class QueueScreen(PageScreen):
                 yield Button("＋ 新建", id="q-new", variant="primary")
             with Horizontal(classes="filter-row gap-top"):
                 if QueueManager.can_pause():
-                    yield Button("暂停/继续", id="q-pause")
-                yield Button("取消", id="q-cancel")
+                    yield Button("暂停", id="q-pause")
+                yield Button("停止", id="q-stop")
                 yield Button("重试", id="q-retry")
-                yield Button("移除", id="q-remove", variant="error")
-                yield Button("打开目录", id="q-open")
+                yield Button("删除任务", id="q-remove", variant="error")
                 yield Static(classes="fill")
         yield ClickTable(cursor_type="row", zebra_stripes=True, classes="tbl", id="q-table")
 
@@ -238,6 +243,27 @@ class QueueScreen(PageScreen):
             self.app.status("暂无任务，按 Ctrl+N 新建下载")
         else:
             self.app.status(self.app.queue_summary())
+        # 按钮可用性依赖光标所在行，重建后（含 move_cursor）统一刷新
+        self.call_after_refresh(self._update_controls)
+
+    def _set_button(self, button_id: str, enabled: bool, label: str | None = None) -> None:
+        try:
+            button = self.query_one(f"#{button_id}", Button)
+        except Exception:
+            return
+        button.disabled = not enabled
+        if label is not None and str(button.label) != label:
+            button.label = label
+
+    def _update_controls(self) -> None:
+        """控制行按钮随选中任务的状态点亮 / 置灰。"""
+        task = self._current()
+        status = task.status if task is not None else ""
+        if QueueManager.can_pause():
+            self._set_button("q-pause", status in PAUSABLE, "继续" if status == PAUSED else "暂停")
+        self._set_button("q-stop", status in STOPPABLE)
+        self._set_button("q-retry", status in RETRYABLE)
+        self._set_button("q-remove", status in REMOVABLE)
 
     # ------------------------------------------------------------ 事件消费
 
@@ -329,9 +355,9 @@ class QueueScreen(PageScreen):
     def _on_pause(self) -> None:
         self.action_toggle_pause()
 
-    @on(Button.Pressed, "#q-cancel")
-    def _on_cancel(self) -> None:
-        self.action_cancel_task()
+    @on(Button.Pressed, "#q-stop")
+    def _on_stop(self) -> None:
+        self.action_stop_task()
 
     @on(Button.Pressed, "#q-retry")
     def _on_retry(self) -> None:
@@ -340,10 +366,6 @@ class QueueScreen(PageScreen):
     @on(Button.Pressed, "#q-remove")
     def _on_remove(self) -> None:
         self.action_remove_task()
-
-    @on(Button.Pressed, "#q-open")
-    def _on_open(self) -> None:
-        self.action_open_dir()
 
     @on(Button.Pressed, "#q-conc")
     def _on_conc(self) -> None:
@@ -388,6 +410,10 @@ class QueueScreen(PageScreen):
         if task_id is not None:
             self._open_detail(str(task_id))
 
+    @on(DataTable.RowHighlighted, "#q-table")
+    def _on_row_highlight(self, event: DataTable.RowHighlighted) -> None:
+        self._update_controls()
+
     def _open_detail(self, task_id: str) -> None:
         # 防止单击与键盘事件重复压栈
         if isinstance(self.app.screen, TaskDetailModal):
@@ -395,14 +421,7 @@ class QueueScreen(PageScreen):
         task = self.app.get_queue().get(task_id)
         if task is None:
             return
-        self.app.push_screen(
-            TaskDetailModal(task.to_dict(), self.app.get_queue()),
-            lambda result: self._on_detail_result(task_id, result),
-        )
-
-    def _on_detail_result(self, task_id: str, result: str | None) -> None:
-        if result == "retry":
-            self._retry(task_id)
+        self.app.push_screen(TaskDetailModal(task.to_dict(), self.app.get_queue()))
 
     # ------------------------------------------------------------ 动作
 
@@ -430,31 +449,34 @@ class QueueScreen(PageScreen):
             if not queue.pause(task.id):
                 self.app.notify_warn("暂停失败：进程可能已退出")
         else:
-            self.app.notify_warn("只有下载中的任务可以暂停")
+            self.app.notify_warn("只有下载中或已暂停的任务可以暂停 / 继续")
 
-    def action_cancel_task(self) -> None:
+    def action_stop_task(self) -> None:
         task = self._current()
         if task is None:
             self.app.notify_warn("请先选择一个任务")
             return
-        if task.status in (COMPLETED, FAILED, CANCELLED):
-            self.app.notify_warn("该任务已结束，无需取消")
+        if task.status not in STOPPABLE:
+            self.app.notify_warn("该任务已停止，无需停止")
             return
-        self._cancel(task.id)
+        self._stop(task.id)
 
     @work
-    async def _cancel(self, task_id: str) -> None:
+    async def _stop(self, task_id: str) -> None:
         try:
             await self.app.get_queue().cancel(task_id)
         except Exception as exc:  # 进程控制失败不应拖垮整个 TUI
-            self.app.notify_err(f"取消失败：{exc}")
+            self.app.notify_err(f"停止失败：{exc}")
             return
-        self.app.notify_ok("已取消任务")
+        self.app.notify_ok("已停止任务")
 
     def action_retry_task(self) -> None:
         task = self._current()
         if task is None:
             self.app.notify_warn("请先选择一个任务")
+            return
+        if task.status not in RETRYABLE:
+            self.app.notify_warn("任务尚未停止，无法重试")
             return
         self._retry(task.id)
 
@@ -475,26 +497,24 @@ class QueueScreen(PageScreen):
         if task is None:
             self.app.notify_warn("请先选择一个任务")
             return
-        running = task.status in (RUNNING, POSTPROCESSING, PAUSED)
-        message = f"确定移除任务「{shorten(task.label, 40)}」吗？" + ("下载将被中断。" if running else "")
+        if task.status not in REMOVABLE:
+            self.app.notify_warn("请先停止任务再删除")
+            return
+        message = f"确定删除任务「{shorten(task.label, 40)}」吗？已下载的文件不会删除。"
         self.app.push_screen(
-            ConfirmModal(message, title="移除确认", yes="移除", default_yes=False),
+            ConfirmModal(message, title="删除确认", yes="删除", default_yes=False),
             lambda confirmed: self._remove(task.id) if confirmed else None,
         )
 
     @work
     async def _remove(self, task_id: str) -> None:
-        await self.app.get_queue().remove(task_id)
-        self.app.notify_ok("已移除任务")
-        self._rebuild()
-
-    def action_open_dir(self) -> None:
-        task = self._current()
-        target = task.filepath if task is not None and task.filepath else str(self.app.get_settings().get("download_dir", ""))
         try:
-            open_directory(target)
+            await self.app.get_queue().remove(task_id)
         except Exception as exc:
-            self.app.notify_warn(str(exc))
+            self.app.notify_err(f"删除失败：{exc}")
+            return
+        self.app.notify_ok("已删除任务")
+        self._rebuild()
 
 
 __all__ = ["QueueScreen", "FILTERS"]

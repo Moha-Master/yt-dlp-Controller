@@ -247,7 +247,8 @@
 
 - 队列表 `#q-table` 行 key = `task.id`；列 key 固定为 `idx/title/status/progress/speed/eta/size`，缩窄到 <96 列时去掉 `speed/eta`。
 - 新建下载必须显式展示播放列表数量与范围（全部 / 仅当前 / 前 N 个），**绝不静默合并成一条**。
-- 危险确认（移除任务 / 退出）一律 `ConfirmModal(..., default_yes=False)`。
+- 危险确认（删除任务 / 退出）一律 `ConfirmModal(..., default_yes=False)`。
+- 队列控制行固定「暂停 · 停止 · 重试 · 删除任务」（非 POSIX 不渲染暂停），并按选中任务状态点亮：`PAUSABLE`（running / paused，标签在「暂停 / 继续」间切换）、`STOPPABLE`（未结束，含 queued / interrupted）、`RETRYABLE`（已停止，含 interrupted 续传）、`REMOVABLE`（已停止 + queued）。键位与按钮同源（`Ctrl+P` / `Ctrl+X` / `Del`），置灰按钮的动作同样带状态守卫。队列页不设「打开目录」按钮，任务详情模态只保留「复制命令」「关闭」。
 - 所有 `HintBar` 文案必须是本页真实可用的键位；不写该页无效的键。
 - 不使用 `q` 退出、不使用单字母快捷键（除主菜单 `1-4` 与队列页 `/`）。
 - 队列与历史是**同一屏同一张表**（`QueueScreen`），不设独立历史页；主菜单只保留「任务队列」一个入口，历史靠状态筛选查看。表内排序为「活跃优先」：`STATUS_RANK`（running → postprocessing → paused → queued → interrupted → failed → completed → cancelled），同组内按 `created_at` 倒序，保证历史记录不会挤掉进行中的任务。

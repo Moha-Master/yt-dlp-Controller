@@ -24,7 +24,7 @@ from ..widgets import (
     rcell,
     shorten,
 )
-from ..ytdlp import human_bytes, human_duration, human_eta, human_speed, open_directory
+from ..ytdlp import human_bytes, human_duration, human_eta, human_speed
 
 if TYPE_CHECKING:
     from ..queue import QueueManager
@@ -243,11 +243,7 @@ class TaskDetailModal(ModalScreen["str | None"]):
                     id="det-log",
                 )
             with Horizontal(classes="btn-row"):
-                yield Button("打开目录", id="det-open")
                 yield Button("复制命令", id="det-copy")
-                if task.get("error"):
-                    yield Button("复制错误", id="det-copy-err")
-                yield Button("重试", id="det-retry")
                 yield Button("关闭", id="det-close", variant="primary")
 
     def _summary_rows(self, task: dict[str, Any]) -> list[tuple[str, Text]]:
@@ -303,30 +299,10 @@ class TaskDetailModal(ModalScreen["str | None"]):
     def _on_close(self) -> None:
         self.dismiss(None)
 
-    @on(Button.Pressed, "#det-retry")
-    def _on_retry(self) -> None:
-        self.dismiss("retry")
-
     @on(Button.Pressed, "#det-copy")
     def _on_copy(self) -> None:
         self.app.copy_to_clipboard(self._command_text(self._snapshot()))
         self.app.notify_ok("命令已复制到剪贴板")
-
-    @on(Button.Pressed, "#det-copy-err")
-    def _on_copy_err(self) -> None:
-        task = self._snapshot()
-        text = "\n".join(part for part in (task.get("error"), task.get("error_hint")) if part)
-        self.app.copy_to_clipboard(text or "（无错误信息）")
-        self.app.notify_ok("错误信息已复制")
-
-    @on(Button.Pressed, "#det-open")
-    def _on_open(self) -> None:
-        task = self._snapshot()
-        target = task.get("filepath") or self.app.get_settings().get("download_dir", "")
-        try:
-            open_directory(str(target))
-        except Exception as exc:
-            self.app.notify_warn(str(exc))
 
     def action_close(self) -> None:
         self.dismiss(None)

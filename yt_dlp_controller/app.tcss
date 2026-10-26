@@ -19,6 +19,8 @@ Button:focus {
 
 Button:disabled {
     text-opacity: 60%;
+    background: $surface;
+    color: $text-muted;
 }
 
 /* ---------- 模态三段式：标题栏 / 内容 / 按钮栏 ---------- */
