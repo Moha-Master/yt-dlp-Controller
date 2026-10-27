@@ -38,7 +38,7 @@ from ..widgets import (
     rcell,
     shorten,
 )
-from ..ytdlp import human_bytes, human_eta, human_speed, progress_bar
+from ..ytdlp import human_bytes_compact, human_eta, human_speed, progress_bar
 from .modals import TaskDetailModal
 
 FILTERS = [("all", "全部"), ("active", "进行中"), ("done", "已完成"), ("failed", "失败")]
@@ -52,7 +52,7 @@ WIDE_COLUMNS = [
     ("eta", "剩余"),
     ("size", "大小"),
 ]
-WIDE_WEIGHTS = [4, 40, 9, 18, 9, 8, 9]
+WIDE_WEIGHTS = [4, 34, 9, 16, 9, 8, 15]
 
 NARROW_COLUMNS = [
     ("idx", "#"),
@@ -61,7 +61,7 @@ NARROW_COLUMNS = [
     ("progress", "进度"),
     ("size", "大小"),
 ]
-NARROW_WEIGHTS = [4, 40, 10, 20, 10]
+NARROW_WEIGHTS = [4, 34, 9, 18, 20]
 
 NARROW_BREAKPOINT = 96
 
@@ -201,17 +201,30 @@ class QueueScreen(PageScreen):
             cells.append(self._status_cell(task))
             cells.append(self._progress_cell(task, vis[3] - 2))
             if self._narrow:
-                cells.append(rcell(human_bytes(task.total_bytes or task.downloaded_bytes), vis[4] - 2))
+                cells.append(rcell(self._size_text(task), vis[4] - 2))
             else:
                 live = task.status == RUNNING
                 cells.append(rcell(human_speed(task.speed) if live else "—", vis[4] - 2))
                 cells.append(rcell(human_eta(task.eta) if live else "—", vis[5] - 2))
-                cells.append(rcell(human_bytes(task.total_bytes or task.downloaded_bytes), vis[6] - 2))
+                cells.append(rcell(self._size_text(task), vis[6] - 2))
             table.add_row(*cells, key=task.id)
         self._status_cache = {t.id: t.status for t in tasks}
         self._update_chrome()
         if cursor_id and cursor_id in self._display_ids:
             table.move_cursor(row=self._display_ids.index(cursor_id), column=0, animate=False)
+
+    @staticmethod
+    def _size_text(task: Task) -> str:
+        """下载中显示「已下载/总量」（估算加 ~），结束后只显示总量。"""
+        total = int(task.total_bytes or 0)
+        downloaded = int(task.downloaded_bytes or 0)
+        if total <= 0:
+            return human_bytes_compact(downloaded) if downloaded > 0 else "—"
+        if downloaded >= total:
+            return human_bytes_compact(total)
+        downloaded_text = human_bytes_compact(downloaded) if downloaded > 0 else "0B"
+        mark = "~" if task.total_estimated else ""
+        return f"{downloaded_text}/{mark}{human_bytes_compact(total)}"
 
     def _status_cell(self, task: Task) -> Text:
         text = Text(STATUS_LABELS.get(task.status, task.status))
@@ -300,13 +313,13 @@ class QueueScreen(PageScreen):
             live = task.status == RUNNING
             if self._narrow:
                 table.update_cell(
-                    task.id, "size", rcell(human_bytes(task.total_bytes or task.downloaded_bytes), self._content_width(table, "size"))
+                    task.id, "size", rcell(self._size_text(task), self._content_width(table, "size"))
                 )
             else:
                 table.update_cell(task.id, "speed", rcell(human_speed(task.speed) if live else "—", self._content_width(table, "speed")))
                 table.update_cell(task.id, "eta", rcell(human_eta(task.eta) if live else "—", self._content_width(table, "eta")))
                 table.update_cell(
-                    task.id, "size", rcell(human_bytes(task.total_bytes or task.downloaded_bytes), self._content_width(table, "size"))
+                    task.id, "size", rcell(self._size_text(task), self._content_width(table, "size"))
                 )
         except Exception:
             # 行已被筛选掉 / 表格正在重建：下一批事件或 reload 会修复

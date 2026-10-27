@@ -26,6 +26,7 @@ from .ytdlp import (
     classify_error,
     parse_output_line,
     progress_percent,
+    stream_total_bytes,
 )
 
 QUEUED = "queued"
@@ -85,6 +86,7 @@ class Task:
     eta: int = 0
     downloaded_bytes: int = 0
     total_bytes: int = 0
+    total_estimated: bool = False
     filepath: str = ""
     error: str = ""
     error_hint: str = ""
@@ -121,6 +123,7 @@ class Task:
             "eta": self.eta,
             "downloaded_bytes": self.downloaded_bytes,
             "total_bytes": self.total_bytes,
+            "total_estimated": self.total_estimated,
             "filepath": self.filepath,
             "error": self.error,
             "error_hint": self.error_hint,
@@ -159,6 +162,7 @@ class Task:
             eta=int(num("eta")),
             downloaded_bytes=int(num("downloaded_bytes")),
             total_bytes=int(num("total_bytes")),
+            total_estimated=bool(raw.get("total_estimated", False)),
             filepath=str(raw.get("filepath") or ""),
             error=str(raw.get("error") or ""),
             error_hint=str(raw.get("error_hint") or ""),
@@ -203,6 +207,8 @@ class QueueManager:
         self._procs: dict[str, asyncio.subprocess.Process] = {}
         self._runners: dict[str, asyncio.Task[None]] = {}
         self._cancel_requested: set[str] = set()
+        # 每个任务本次运行的流统计（视频 / 音频分别下载，体积按流缓存）
+        self._streams: dict[str, dict[str, Any]] = {}
         self._dirty = False
         self._closing = False
         self._started = False
@@ -411,6 +417,9 @@ class QueueManager:
             task.percent = 0.0
             task.speed = 0.0
             task.eta = 0
+            task.downloaded_bytes = 0
+            task.total_bytes = 0
+            task.total_estimated = False
             self._emit("task", task)
         if tasks:
             self._emit("tasks", task_id="")
@@ -428,6 +437,8 @@ class QueueManager:
         task.speed = 0.0
         task.eta = 0
         task.downloaded_bytes = 0
+        task.total_bytes = 0
+        task.total_estimated = False
         task.error = ""
         task.error_hint = ""
         task.filepath = ""
@@ -445,6 +456,7 @@ class QueueManager:
         if task.status in LIVE_STATUSES or task.status == PAUSED:
             await self.cancel(task_id)
         self.tasks.pop(task_id, None)
+        self._streams.pop(task_id, None)
         self._emit("tasks", task_id=task_id)
         self._mark_dirty()
         self._write()
@@ -631,6 +643,7 @@ class QueueManager:
         task.eta = 0
         task.downloaded_bytes = 0
         task.total_bytes = 0
+        task.total_estimated = False
         task.error = ""
         task.error_hint = ""
         try:
@@ -674,6 +687,7 @@ class QueueManager:
         finally:
             self._procs.pop(task.id, None)
             self._runners.pop(task.id, None)
+            self._streams.pop(task.id, None)
 
         cancelled = task.id in self._cancel_requested
         self._cancel_requested.discard(task.id)
@@ -690,6 +704,7 @@ class QueueManager:
             task.percent = 100.0
             if not task.filepath:
                 task.filepath = self._guess_filepath(task, settings)
+            self._apply_final_size(task)
         else:
             task.status = FAILED
             if not task.error:
@@ -712,24 +727,101 @@ class QueueManager:
         self._runners.pop(task.id, None)
         self.pump()
 
+    @staticmethod
+    def _new_stream_state() -> dict[str, Any]:
+        return {"item": "", "current": "", "totals": {}, "estimates": {}, "done": {}}
+
+    def _consume_progress(self, task: Task, payload: dict[str, Any]) -> None:
+        """按「流」累计进度：视频 / 音频分别下载，各自体积稳定后才相加。"""
+        state = self._streams.setdefault(task.id, self._new_stream_state())
+        item = str(payload.get("_info_id") or "").strip()
+
+        # 播放列表：yt-dlp 在同一进程里依次下载多条视频，进入下一条时重新统计
+        if item and state["item"] and item != state["item"]:
+            state = self._new_stream_state()
+            self._streams[task.id] = state
+            task.percent = 0.0
+        if item:
+            state["item"] = item
+
+        fmt = str(payload.get("_format_id") or "").strip()
+        if fmt and state["current"] and fmt != state["current"]:
+            # 上一条流（通常是视频）已结束：按已知总量记满，累计下载量才不会回退
+            previous = state["current"]
+            state["done"][previous] = state["totals"].get(previous) or state["done"].get(previous, 0)
+        if fmt:
+            state["current"] = fmt
+        key = state["current"] or "default"
+        totals: dict[str, int] = state["totals"]
+        estimates: dict[str, bool] = state["estimates"]
+        done: dict[str, int] = state["done"]
+
+        stream_total, estimated = stream_total_bytes(payload)
+        if stream_total > 0:
+            previous_total = totals.get(key, 0)
+            if estimated and previous_total > 0:
+                # 无精确体积时只能靠分片外推：先指数平滑，再做小幅死区锁存。
+                # 上涨不足 2% 先攒着、小幅回落忽略，表格里的「大小」才不会逐帧抖动；
+                # 明显高估（回落 >10%）仍允许修正。
+                smoothed = int(previous_total * 0.8 + stream_total * 0.2)
+                delta = smoothed - previous_total
+                threshold = max(previous_total * 0.02, 1 << 20)
+                if 0 <= delta < threshold or -previous_total * 0.1 < delta < 0:
+                    smoothed = previous_total
+                stream_total = smoothed
+            totals[key] = stream_total
+            estimates[key] = estimated
+
+        downloaded = payload.get("downloaded_bytes")
+        if isinstance(downloaded, (int, float)):
+            done[key] = max(done.get(key, 0), int(downloaded))
+
+        cumulative_total = sum(totals.values())
+        if cumulative_total > 0:
+            cumulative_done = sum(done.get(name, 0) if name == key else totals.get(name, 0) for name in totals)
+            task.total_bytes = cumulative_total
+            task.total_estimated = any(estimates.values())
+            task.downloaded_bytes = min(cumulative_done, cumulative_total)
+            percent = cumulative_done / cumulative_total * 100
+        else:
+            if isinstance(downloaded, (int, float)):
+                task.downloaded_bytes = int(downloaded)
+            percent = progress_percent(payload)
+
+        # 多流未合并 / 后处理之前不提前显示 100%，且同一次运行内不回退
+        task.percent = max(task.percent, min(99.0, max(0.0, percent)))
+
+        speed = payload.get("speed")
+        task.speed = float(speed) if isinstance(speed, (int, float)) else 0.0
+        if cumulative_total > 0 and task.speed > 0:
+            remaining = max(0, cumulative_total - task.downloaded_bytes)
+            task.eta = int(remaining / task.speed)
+        else:
+            eta = payload.get("eta")
+            task.eta = int(eta) if isinstance(eta, (int, float)) else 0
+
+        self._mark_dirty()
+        self._emit("progress", task)
+
+    @staticmethod
+    def _apply_final_size(task: Task) -> None:
+        """完成后用磁盘上的真实文件大小校正（分片估算 / 多流叠加都可能偏差）。"""
+        if not task.filepath:
+            return
+        try:
+            size = os.path.getsize(task.filepath)
+        except OSError:
+            return
+        if size <= 0:
+            return
+        task.downloaded_bytes = size
+        task.total_bytes = size
+        task.total_estimated = False
+
     def _consume_line(self, task: Task, line: str) -> None:
         kind, payload = parse_output_line(line)
         if kind == "progress":
-            task.percent = progress_percent(payload)
-            if payload.get("status") == "finished":
-                task.percent = 100.0
-            downloaded = payload.get("downloaded_bytes")
-            total = payload.get("total_bytes") or payload.get("total_bytes_estimate")
-            if isinstance(downloaded, (int, float)):
-                task.downloaded_bytes = int(downloaded)
-            if isinstance(total, (int, float)):
-                task.total_bytes = int(total)
-            speed = payload.get("speed")
-            task.speed = float(speed) if isinstance(speed, (int, float)) else 0.0
-            eta = payload.get("eta")
-            task.eta = int(eta) if isinstance(eta, (int, float)) else 0
-            self._mark_dirty()
-            self._emit("progress", task)
+            self._consume_progress(task, payload)
             return
 
         if kind == "postprocess":

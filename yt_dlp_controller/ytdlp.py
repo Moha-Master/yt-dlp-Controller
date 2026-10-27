@@ -201,6 +201,14 @@ def effective_settings(task: dict[str, Any], settings: dict[str, Any]) -> dict[s
     return merged
 
 
+# 进度行除了 progress 字典，还附带所选流的元信息（制表符分隔）：
+# 视频 / 音频是两条独立下载，只有 info 里才有稳定的单流体积。
+PROGRESS_TEMPLATE = (
+    "download:PROG %(progress)j"
+    "\t%(info.id)s\t%(info.format_id)s\t%(info.filesize)s\t%(info.filesize_approx)s"
+)
+
+
 def build_args(task: dict[str, Any], settings: dict[str, Any]) -> list[str]:
     """按 PLAN §4.1 构建完整命令行。task 为普通 dict（Task.to_dict()）。"""
     conf = effective_settings(task, settings)
@@ -209,7 +217,7 @@ def build_args(task: dict[str, Any], settings: dict[str, Any]) -> list[str]:
         args.append("--ignore-config")
     args += [
         "--progress-template",
-        "download:PROG %(progress)j",
+        PROGRESS_TEMPLATE,
         "--progress-template",
         "postprocess:PP %(progress)j",
         "--print",
@@ -417,8 +425,11 @@ def parse_output_line(line: str) -> tuple[str, Any]:
     """
     clean = strip_ansi(line).rstrip()
     if clean.startswith("PROG "):
-        data = _loads(clean[5:])
+        head, sep, meta = clean[5:].partition("\t")
+        data = _loads(head)
         if data is not None:
+            if sep:
+                _attach_stream_meta(data, meta.split("\t"))
             return "progress", data
     elif clean.startswith("PP "):
         data = _loads(clean[3:])
@@ -427,6 +438,46 @@ def parse_output_line(line: str) -> tuple[str, Any]:
     elif clean.startswith("FINAL "):
         return "final", clean[6:].strip()
     return "log", clean
+
+
+def _as_int(value: Any) -> int:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0
+    return int(number) if number > 0 else 0
+
+
+def _attach_stream_meta(data: dict[str, Any], fields: list[str]) -> None:
+    """把模板附带的流元信息挂到 progress 字典上（缺失值 yt-dlp 会输出 NA）。"""
+
+    def text(index: int) -> str:
+        if index >= len(fields):
+            return ""
+        raw = fields[index].strip()
+        return "" if raw in ("", "NA", "None") else raw
+
+    data["_info_id"] = text(0)
+    data["_format_id"] = text(1)
+    data["_format_filesize"] = _as_int(fields[2] if len(fields) > 2 else "")
+    data["_format_filesize_approx"] = _as_int(fields[3] if len(fields) > 3 else "")
+
+
+def stream_total_bytes(payload: dict[str, Any]) -> tuple[int, bool]:
+    """当前下载流的总字节数与「是否为估算值」。
+
+    优先级：Content-Length / ``info.filesize``（精确）→ ``info.filesize_approx``
+    （按码率估的固定值）→ ``total_bytes_estimate``（分片外推，逐片抖动）。
+    """
+    for key in ("total_bytes", "_format_filesize"):
+        value = payload.get(key)
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value), False
+    for key in ("_format_filesize_approx", "total_bytes_estimate"):
+        value = payload.get(key)
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value), True
+    return 0, False
 
 
 def _loads(text: str) -> dict[str, Any] | None:
@@ -512,6 +563,25 @@ def human_bytes(value: float | int | None) -> str:
     if idx == 0:
         return f"{int(size)} B"
     return f"{size:.2f} {units[idx]}"
+
+
+def human_bytes_compact(value: float | int | None) -> str:
+    """表格用紧凑体积（45.2M / 1.23G），给「已下载/总量」留出列宽。"""
+    size = float(value or 0)
+    if size <= 0:
+        return "—"
+    units = ["B", "K", "M", "G", "T"]
+    idx = 0
+    while size >= 1024 and idx < len(units) - 1:
+        size /= 1024
+        idx += 1
+    if idx == 0:
+        return f"{int(size)}B"
+    if size >= 100:
+        return f"{size:.0f}{units[idx]}"
+    if size >= 10:
+        return f"{size:.1f}{units[idx]}"
+    return f"{size:.2f}{units[idx]}"
 
 
 def human_speed(value: float | int | None) -> str:

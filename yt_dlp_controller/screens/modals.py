@@ -250,9 +250,17 @@ class TaskDetailModal(ModalScreen["str | None"]):
         status = str(task.get("status", ""))
         status_text = Text(STATUS_LABELS.get(status, status))
         status_text.stylize(STATUS_COLORS.get(status, ""))
-        total = human_bytes(task.get("total_bytes"))
-        downloaded = human_bytes(task.get("downloaded_bytes"))
-        size = f"{downloaded} / {total}" if total != "—" else downloaded
+        raw_total = int(task.get("total_bytes") or 0)
+        raw_downloaded = int(task.get("downloaded_bytes") or 0)
+        total_text = human_bytes(raw_total)
+        downloaded_text = human_bytes(raw_downloaded)
+        if raw_total <= 0:
+            size = downloaded_text
+        elif raw_downloaded >= raw_total:
+            size = total_text
+        else:
+            mark = "~" if task.get("total_estimated") else ""
+            size = f"{downloaded_text} / {mark}{total_text}"
         rows: list[tuple[str, Text]] = [
             ("链接", Text(str(task.get("url", "")))),
             ("状态", status_text),

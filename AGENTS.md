@@ -252,6 +252,7 @@
 - 所有 `HintBar` 文案必须是本页真实可用的键位；不写该页无效的键。
 - 不使用 `q` 退出、不使用单字母快捷键（除主菜单 `1-4` 与队列页 `/`）。
 - 队列与历史是**同一屏同一张表**（`QueueScreen`），不设独立历史页；主菜单只保留「任务队列」一个入口，历史靠状态筛选查看。表内排序为「活跃优先」：`STATUS_RANK`（running → postprocessing → paused → queued → interrupted → failed → completed → cancelled），同组内按 `created_at` 倒序，保证历史记录不会挤掉进行中的任务。
+- 进度按**流**统计（`QueueManager._streams`）：`--progress-template` 除 `%(progress)j` 外附带 `info.id / format_id / filesize / filesize_approx`；视频与音频各自的总量在流内恒定，切换流时累计相加，`total_estimated` 标记估算值。`total_bytes_estimate`（分片外推）需 EMA + 小幅死区平滑，避免「大小」逐帧抖动；完成时用 `os.stat(filepath).st_size` 校正，不能停在最后一条音频流的体积上。
 
 ## 20. 开发与验证
 
