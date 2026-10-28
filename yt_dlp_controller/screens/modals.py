@@ -51,9 +51,11 @@ class FormatsModal(ModalScreen["str | None"]):
     def compose(self):
         with Vertical(classes="modal-box"):
             yield Static(Text(self.title_text, style="bold"), classes="modal-title")
-            yield Static("↑↓ 选择 · 回车 使用该格式 · Esc 取消", classes="fmt-hint")
+            yield Static("↑↓ 选择 · 单击/回车 使用该格式 · Esc 取消", classes="fmt-hint")
             with Vertical(classes="fmt-body"):
-                yield make_table("ID", "格式", "分辨率", "帧率", "编码", "大小", "码率", id="fmt-table")
+                yield make_table(
+                    "ID", "格式", "分辨率", "帧率", "编码", "大小", "码率", id="fmt-table", activate="click"
+                )
             with Horizontal(classes="btn-row"):
                 yield Button("关闭", id="fmt-close")
                 yield Button("使用所选格式", id="fmt-ok", variant="primary")

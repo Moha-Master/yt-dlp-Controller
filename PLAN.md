@@ -479,7 +479,7 @@ asyncio.run(main())
 - [ ] 首页 `1-4` 直达、窄屏 logo 降级
 - [ ] `#page.virtual_size.height <= container_size.height`（外层不滚动）
 - [ ] 表格列宽和 ≈ `region.width - 2`，无横向滚动条
-- [ ] 单击行打开详情，**不重复压栈**
+- [ ] 双击行打开详情，**不重复压栈**
 - [ ] 进度更新不重建表格（行 key 稳定）、速度/ETA 文案不抖
 - [ ] 取消 → 状态 `cancelled` 且子进程确实退出（`ps` 校验）
 - [ ] 暂停/继续仅在 POSIX 显示

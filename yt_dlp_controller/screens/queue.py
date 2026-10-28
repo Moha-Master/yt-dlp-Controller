@@ -106,7 +106,7 @@ class QueueScreen(PageScreen):
         self._narrow = False
         self._search = ""
         hint = (
-            "↑↓ 选择 · 回车 详情 · Ctrl+N 新建 · Ctrl+P 暂停 · Ctrl+X 停止 · "
+            "↑↓ 选择 · 双击/回车 详情 · Ctrl+N 新建 · Ctrl+P 暂停 · Ctrl+X 停止 · "
             "Del 删除 · / 搜索 · Esc 返回"
         )
         if not QueueManager.can_pause():
@@ -428,7 +428,7 @@ class QueueScreen(PageScreen):
         self._update_controls()
 
     def _open_detail(self, task_id: str) -> None:
-        # 防止单击与键盘事件重复压栈
+        # 防止双击与键盘事件重复压栈
         if isinstance(self.app.screen, TaskDetailModal):
             return
         task = self.app.get_queue().get(task_id)
